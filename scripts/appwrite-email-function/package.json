@@ -1,0 +1,9 @@
+{
+  "name": "appwrite-email-function",
+  "version": "0.1.0",
+  "description": "Appwrite function that sends email using SMTP secrets.",
+  "main": "index.js",
+  "dependencies": {
+    "nodemailer": "^6.9.4"
+  }
+}

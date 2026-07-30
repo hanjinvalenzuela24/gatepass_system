@@ -1,0 +1,31 @@
+{
+    "organizationId": "67ce61fb000f05a2e8ec",
+    "projectId": "6a4b5a1300282e4091f6",
+    "projectName": "Gatepass System",
+    "functions": [
+        {
+            "$id": "6a67ff850026046daa8a",
+            "name": "email function",
+            "runtime": "node-16.0",
+            "buildSpecification": "s-0.5vcpu-512mb",
+            "runtimeSpecification": "s-0.5vcpu-512mb",
+            "execute": [
+                "any"
+            ],
+            "events": [],
+            "scopes": [],
+            "schedule": "",
+            "timeout": 15,
+            "enabled": true,
+            "logging": true,
+            "entrypoint": "src/main.js",
+            "commands": "npm install",
+            "ignore": [
+                "node_modules",
+                ".npm"
+            ],
+            "deploymentRetention": 0,
+            "path": "functions/email-function"
+        }
+    ]
+}

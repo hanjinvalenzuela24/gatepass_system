@@ -1,0 +1,17 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "validate-manager-tabs",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"echo validation placeholder"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}

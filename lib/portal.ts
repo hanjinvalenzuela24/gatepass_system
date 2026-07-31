@@ -603,8 +603,8 @@ function getConfiguredEmailList(kind: "admin" | "manager") {
   const publicKey = kind === "admin" ? "NEXT_PUBLIC_ADMIN_EMAILS" : "NEXT_PUBLIC_MANAGER_EMAILS";
   const fallbackKey = kind === "admin" ? "ADMIN_EMAILS" : "MANAGER_EMAILS";
   const defaultRecipients = kind === "admin"
-    ? ["set.it@seiwakaiun.com.ph"]
-    : ["valenzuelamarkhanjin@gmail.com"];
+    ? ["dan.reyes@seiwakaiun.com.ph"]
+    : ["ggbp.it@seiwakaiun.com.ph"];
 
   const emails = [process.env[publicKey], process.env[fallbackKey], ...defaultRecipients]
     .flatMap((value) => (value ?? "").split(","))

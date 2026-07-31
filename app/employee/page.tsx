@@ -164,7 +164,7 @@ export default function EmployeePage() {
             Employee Panel
           </p>
           <h1 className="mt-1 text-2xl font-semibold text-[#253448]">
-            Laptop Take-Home Request Form
+            Gatepass Request Form
           </h1>
           <p className="text-sm text-[#5c6a7f]">
             Signed in as {sessionUser?.name ?? "..."}
@@ -226,7 +226,7 @@ export default function EmployeePage() {
               />
             </label>
             <label className="text-sm text-[#344359]">
-              Device Type
+              Item Type
               <select
                 className="field mt-1"
                 value={form.deviceType}

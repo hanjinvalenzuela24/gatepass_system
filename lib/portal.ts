@@ -232,6 +232,17 @@ function getAdminAccountServiceUrl() {
   return ADMIN_ACCOUNT_SERVICE_URL.replace(/\/+/g, "/").replace(/\/$/, "");
 }
 
+function getWebsiteUrl() {
+  const configuredUrl = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/+$/, "");
+  if (configuredUrl) {
+    return configuredUrl;
+  }
+
+  // Email requests originate in the browser, so this works for static hosting
+  // without baking a localhost URL into the production bundle.
+  return typeof window !== "undefined" ? window.location.origin : "";
+}
+
 async function sendEmailViaExternalService(payload: ExternalEmailPayload) {
   if (isAppwriteEmailConfigured()) {
     return await sendEmailViaAppwrite(payload);
@@ -628,7 +639,7 @@ async function sendAdminNotification(request: {
     ? request.employeeEmail.trim()
     : undefined;
 
-  const websiteUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const websiteUrl = getWebsiteUrl();
   const formattedDateNeeded = formatDateTimeForEmail(request.dateNeeded);
 const emailResult = await sendEmailViaExternalService({
     to: adminList,
@@ -693,7 +704,7 @@ async function sendManagerApprovalQueueNotification(request: {
 
   const employeeEmailDisplay =
     request.requestorEmail?.trim() || request.employeeEmail?.trim() || "Not available";
-  const websiteUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const websiteUrl = getWebsiteUrl();
   const formattedDateNeeded = formatDateTimeForEmail(request.dateNeeded);
   const htmlBody = `
 <html><body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
@@ -1395,7 +1406,7 @@ export async function updateRequestStatus(
         return { ok: true, warning: message };
       }
 
-      const websiteUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const websiteUrl = getWebsiteUrl();
       const isApproved = status === "approved";
       const statusColor = isApproved ? "#2f7a45" : "#984040";
       const statusText = isApproved ? "Approved" : "Rejected";

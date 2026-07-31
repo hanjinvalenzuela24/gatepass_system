@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { LoadingModal } from "@/app/components/loading-modal";
 import {
   bootstrapMockData,
   getPortalServerSnapshot,
@@ -17,6 +18,7 @@ import {
 type FormValues = {
   department: string;
   deviceType: string;
+  otherDevice: string;
   deviceName: string;
   model: string;
   assetTag: string;
@@ -28,6 +30,7 @@ type FormValues = {
 const initialForm: FormValues = {
   department: "",
   deviceType: "",
+  otherDevice: "",
   deviceName: "",
   model: "",
   assetTag: "",
@@ -80,6 +83,7 @@ export default function EmployeePage() {
   const router = useRouter();
   const [form, setForm] = useState<FormValues>(initialForm);
   const [submitError, setSubmitError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<DeviceRequest | null>(null);
   const snapshot = useSyncExternalStore(
     subscribePortalState,
@@ -93,10 +97,25 @@ export default function EmployeePage() {
   }, [sessionUser, snapshot.requests]);
   const recentRequests = useMemo(() => requests.slice(0, 3), [requests]);
 
-  const canSubmit = useMemo(
-    () => Object.values(form).every((v) => v.trim().length > 0),
-    [form],
-  );
+  const isOtherDevice = form.deviceType === "Other Company Device";
+  const canSubmit = useMemo(() => {
+    const requiredFields = [
+      form.department,
+      form.deviceType,
+      form.deviceName,
+      form.model,
+      form.assetTag,
+      form.inclusions,
+      form.purpose,
+      form.dateNeeded,
+    ];
+
+    if (isOtherDevice) {
+      requiredFields.push(form.otherDevice);
+    }
+
+    return requiredFields.every((value) => value.trim().length > 0);
+  }, [form, isOtherDevice]);
 
   useEffect(() => {
     bootstrapMockData();
@@ -126,15 +145,19 @@ export default function EmployeePage() {
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitError("");
+    setIsSubmitting(true);
 
     const employee = getCurrentUser();
-    if (!employee || employee.role !== "employee") return;
+    if (!employee || employee.role !== "employee") {
+      setIsSubmitting(false);
+      return;
+    }
 
     const result = await submitRequest({
       employeeId: employee.id,
       employeeName: employee.name,
       department: form.department,
-      deviceType: form.deviceType,
+      deviceType: isOtherDevice ? form.otherDevice : form.deviceType,
       deviceName: form.deviceName,
       model: form.model,
       assetTag: form.assetTag,
@@ -142,6 +165,8 @@ export default function EmployeePage() {
       purpose: form.purpose,
       dateNeeded: form.dateNeeded,
     });
+
+    setIsSubmitting(false);
 
     if (!result.ok) {
       setSubmitError(result.error);
@@ -183,6 +208,7 @@ export default function EmployeePage() {
         </div>
       </header>
 
+      <LoadingModal open={isSubmitting} message="Submitting your request..." />
       <section className="grid gap-5 lg:grid-cols-[1.1fr_1fr]">
         <form onSubmit={onSubmit} className="card fade-in-up p-5 sm:p-6">
           <h2 className="text-lg font-semibold text-[#253448]">New Request</h2>
@@ -231,6 +257,7 @@ export default function EmployeePage() {
                 className="field mt-1"
                 value={form.deviceType}
                 onChange={(e) => setForm((f) => ({ ...f, deviceType: e.target.value }))}
+                disabled={isSubmitting}
               >
                 <option value="">Select device type</option>
                 <option value="Laptop">Laptop</option>
@@ -239,6 +266,18 @@ export default function EmployeePage() {
                 <option value="Other Company Device">Other Company Device</option>
               </select>
             </label>
+            {isOtherDevice ? (
+              <label className="text-sm text-[#344359] sm:col-span-2">
+                Other Item
+                <input
+                  className="field mt-1"
+                  value={form.otherDevice}
+                  onChange={(e) => setForm((f) => ({ ...f, otherDevice: e.target.value }))}
+                  placeholder="Enter other company device"
+                  disabled={isSubmitting}
+                />
+              </label>
+            ) : null}
             <label className="text-sm text-[#344359]">
               Model
               <input
@@ -277,9 +316,18 @@ export default function EmployeePage() {
             </label>
           </div>
 
-          <button disabled={!canSubmit} className="btn-primary mt-5 w-full disabled:cursor-not-allowed disabled:opacity-55">
-            Submit Request
+          <button
+            type="submit"
+            disabled={!canSubmit || isSubmitting}
+            className="btn-primary mt-5 w-full disabled:cursor-not-allowed disabled:opacity-55"
+          >
+            {isSubmitting ? "Submitting request..." : "Submit Request"}
           </button>
+          {isSubmitting ? (
+            <p className="mt-3 rounded-md bg-[#eef6ff] px-3 py-2 text-sm text-[#1f4f8b]">
+              Submitting your request, please wait...
+            </p>
+          ) : null}
           {submitError ? (
             <p className="mt-3 rounded-md bg-[#ffecec] px-3 py-2 text-sm text-[#933f3f]">
               {submitError}

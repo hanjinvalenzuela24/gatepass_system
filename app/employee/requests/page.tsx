@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { jsPDF } from "jspdf";
 import {
   bootstrapMockData,
   getPortalServerSnapshot,
@@ -51,6 +52,76 @@ function formatDateTime(value: string | null) {
     return value.replace("T", " ");
   }
   return date.toLocaleString();
+}
+
+function downloadRequestPdf(request: DeviceRequest) {
+  const doc = new jsPDF({ unit: "pt", format: "letter" });
+  const margin = 40;
+  const tableLeft = margin;
+  const tableTop = 100;
+  const labelWidth = 150;
+  const valueWidth = 390;
+  const rowHeight = 28;
+  const tableWidth = labelWidth + valueWidth + 20;
+
+  doc.setFontSize(18);
+  doc.text("Gatepass Request Form", margin, 50);
+
+  doc.setFontSize(11);
+  doc.setFillColor(237, 243, 254);
+  doc.rect(tableLeft, tableTop - rowHeight, tableWidth, rowHeight, "F");
+
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(33, 37, 41);
+  doc.text("Field", tableLeft + 8, tableTop - 8);
+  doc.text("Value", tableLeft + labelWidth + 12, tableTop - 8);
+  doc.setFont("helvetica", "normal");
+
+  const employeeEmail = request.employeeEmail.trim() || getCurrentUser()?.email?.trim() || "Not available";
+  const rows = [
+    ["Employee Name", request.employeeName],
+    ["Employee Email", employeeEmail],
+    ["Department", request.department],
+    ["Device Type", request.deviceType],
+    ["Device Name", request.deviceName],
+    ["Model", request.model],
+    ["Asset Tag", request.assetTag],
+    ["Inclusions", request.inclusions],
+    ["Purpose", request.purpose],
+    ["Date Needed", formatDateTime(request.dateNeeded)],
+    ["Status", request.status],
+    ["Guard Decision", request.guardDecision],
+    ["Created At", formatDateTime(request.createdAt)],
+  ];
+
+  rows.forEach(([label, value], index) => {
+    const y = tableTop + index * rowHeight;
+    if (index % 2 === 0) {
+      doc.setFillColor(250, 250, 250);
+      doc.rect(tableLeft, y, tableWidth, rowHeight, "F");
+    }
+
+    doc.setDrawColor(204);
+    doc.setLineWidth(0.5);
+    doc.line(tableLeft, y, tableLeft + tableWidth, y);
+
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(51, 65, 85);
+    doc.text(label, tableLeft + 8, y + 18, { maxWidth: labelWidth - 12 });
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(74, 85, 104);
+    doc.text(String(value), tableLeft + labelWidth + 12, y + 18, { maxWidth: valueWidth - 12 });
+  });
+
+  doc.setDrawColor(204);
+  doc.setLineWidth(0.8);
+  doc.line(tableLeft, tableTop, tableLeft, tableTop + rows.length * rowHeight);
+  doc.line(tableLeft + labelWidth + 10, tableTop, tableLeft + labelWidth + 10, tableTop + rows.length * rowHeight);
+  doc.line(tableLeft + tableWidth, tableTop, tableLeft + tableWidth, tableTop + rows.length * rowHeight);
+  doc.line(tableLeft, tableTop + rows.length * rowHeight, tableLeft + tableWidth, tableTop + rows.length * rowHeight);
+
+  doc.save(`gatepass-request-${request.id}.pdf`);
 }
 
 type EmployeeRequestTab = "pending" | "denied" | "approved";
@@ -183,58 +254,74 @@ export default function EmployeeAllRequestsPage() {
           </button>
         </div>
 
-        <div className="mt-4 space-y-3">
+        <div className="mt-4 overflow-x-auto rounded-3xl border border-[#e6d9c5] bg-white shadow-sm">
           {requests.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-[#dbcdb8] bg-[#fffdf8] p-3 text-sm text-[#627188]">
+            <div className="rounded-3xl border border-dashed border-[#dbcdb8] bg-[#fffdf8] p-6 text-sm text-[#627188]">
               No requests yet. Submit your first laptop gatepass request.
-            </p>
+            </div>
           ) : filteredRequests.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-[#dbcdb8] bg-[#fffdf8] p-3 text-sm text-[#627188]">
+            <div className="rounded-3xl border border-dashed border-[#dbcdb8] bg-[#fffdf8] p-6 text-sm text-[#627188]">
               No {activeRequestTab} requests found.
-            </p>
+            </div>
           ) : (
-            filteredRequests.map((request) => (
-              <article
-                key={request.id}
-                className="cursor-pointer rounded-xl border border-[#e6d9c5] bg-[#fffdf7] p-3 transition hover:shadow-[0_8px_20px_rgba(62,53,31,0.08)]"
-                onClick={() => setSelectedRequest(request)}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-[#2f3f55]">
-                      {request.deviceName} ({request.model})
-                    </p>
-                    <p className="text-xs text-[#6f7e93]">
-                      Type: {request.deviceType} | Asset: {request.assetTag} | Inclusions: {request.inclusions}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${getRequestStatusBadge(request).className}`}>
-                      {getRequestStatusBadge(request).label}
-                    </span>
-                    {request.deviceType.toLowerCase() === "laptop" && request.guardDecision === "released" ? (
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${returnStatusClass(request.returnStatus)}`}
-                      >
-                        return: {request.returnStatus}
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-                <p className="mt-2 text-sm text-[#56667c]">{request.purpose}</p>
-                {request.status === "rejected" && request.adminDecisionNote ? (
-                  <p className="mt-2 rounded-md bg-[#ffecec] px-2 py-1 text-xs text-[#933f3f]">
-                    Admin rejection note: {request.adminDecisionNote}
-                  </p>
-                ) : null}
-                {request.guardDecision === "held" && request.guardDecisionNote ? (
-                  <p className="mt-2 rounded-md bg-[#ffecec] px-2 py-1 text-xs text-[#933f3f]">
-                    Guard hold note: {request.guardDecisionNote}
-                  </p>
-                ) : null}
-                <p className="mt-2 text-xs text-[#8190a3]">Needed: {request.dateNeeded.replace("T", " ")}</p>
-              </article>
-            ))
+            <table className="min-w-full border-separate border-spacing-0 text-left">
+              <thead>
+                <tr className="bg-[#f5f5f6] text-sm text-[#4b5563]">
+                  <th className="border-b border-[#e2e8f0] px-4 py-4 font-medium">Request</th>
+                  <th className="border-b border-[#e2e8f0] px-4 py-4 font-medium">Type / Asset</th>
+                  <th className="border-b border-[#e2e8f0] px-4 py-4 font-medium">Status</th>
+                  <th className="border-b border-[#e2e8f0] px-4 py-4 font-medium">Needed</th>
+                  <th className="border-b border-[#e2e8f0] px-4 py-4 font-medium">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRequests.map((request) => (
+                  <tr
+                    key={request.id}
+                    className="cursor-pointer border-b border-[#e2e8f0] transition hover:bg-[#faf9f4]"
+                    onClick={() => setSelectedRequest(request)}
+                  >
+                    <td className="px-4 py-4 align-top">
+                      <p className="font-semibold text-[#1f2937]">{request.deviceName} ({request.model})</p>
+                      <p className="mt-1 text-sm text-[#525f7a]">{request.purpose}</p>
+                    </td>
+                    <td className="px-4 py-4 align-top text-sm text-[#525f7a]">
+                      <p>{request.deviceType}</p>
+                      <p className="mt-1 text-[#6b7280]">{request.assetTag}</p>
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${getRequestStatusBadge(request).className}`}>
+                          {getRequestStatusBadge(request).label}
+                        </span>
+                        {request.deviceType.toLowerCase() === "laptop" && request.guardDecision === "released" ? (
+                          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${returnStatusClass(request.returnStatus)}`}>
+                            return: {request.returnStatus}
+                          </span>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 align-top text-sm text-[#525f7a]">{request.dateNeeded.replace("T", " ")}</td>
+                    <td className="px-4 py-4 align-top">
+                      {request.status === "approved" && request.guardDecision !== "held" ? (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            downloadRequestPdf(request);
+                          }}
+                          className="rounded-full border border-[#d7dce4] bg-white px-3 py-1 text-xs font-semibold text-[#253448] transition hover:bg-[#f5f7fb]"
+                        >
+                          Download Form
+                        </button>
+                      ) : (
+                        <span className="text-sm text-[#6b7280]">View details</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       </section>

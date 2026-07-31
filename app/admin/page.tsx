@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { isAppwriteConfigured } from "@/lib/appwrite";
+import { LoadingModal } from "@/app/components/loading-modal";
 import {
   bootstrapMockData,
   createManagedAccount,
@@ -75,6 +76,7 @@ export default function AdminPage() {
   const [accountActionMessage, setAccountActionMessage] = useState("");
   const [accountActionType, setAccountActionType] = useState<"success" | "error" | "">("");
   const [accounts, setAccounts] = useState<PortalUser[]>(() => listAllUsers());
+  const [isLoading, setIsLoading] = useState(false);
   const snapshot = useSyncExternalStore(
     subscribePortalState,
     getPortalSnapshot,
@@ -157,15 +159,19 @@ export default function AdminPage() {
       return;
     }
 
-    const result = await updateRequestStatus(requestId, nextStatus);
-    if (result.ok) {
-      setActionMessage(`Request ${requestId} approved. Email sent to the requestor.`);
-      setActionMessageType("success");
-      return;
+    setIsLoading(true);
+    try {
+      const result = await updateRequestStatus(requestId, nextStatus);
+      if (result.ok) {
+        setActionMessage(`Request ${requestId} approved. Email sent to the requestor.`);
+        setActionMessageType("success");
+        return;
+      }
+      setActionMessage(result.error);
+      setActionMessageType("error");
+    } finally {
+      setIsLoading(false);
     }
-
-    setActionMessage(result.error);
-    setActionMessageType("error");
   }
 
   function closeRejectModal() {
@@ -185,14 +191,19 @@ export default function AdminPage() {
 
     setActionMessage("");
     setActionMessageType("");
+    setIsLoading(true);
 
-    const result = await updateRequestStatus(rejectRequestId, "rejected", reason);
-    if (result.ok) {
-      setActionMessage(`Request ${rejectRequestId} rejected. Email sent to the requestor.`);
-      setActionMessageType("success");
-    } else {
-      setActionMessage(result.error);
-      setActionMessageType("error");
+    try {
+      const result = await updateRequestStatus(rejectRequestId, "rejected", reason);
+      if (result.ok) {
+        setActionMessage(`Request ${rejectRequestId} rejected. Email sent to the requestor.`);
+        setActionMessageType("success");
+      } else {
+        setActionMessage(result.error);
+        setActionMessageType("error");
+      }
+    } finally {
+      setIsLoading(false);
     }
 
     closeRejectModal();
@@ -202,33 +213,39 @@ export default function AdminPage() {
     event.preventDefault();
     setAccountError("");
     setAccountSuccess("");
+    setIsLoading(true);
 
     if (accountPassword !== confirmAccountPassword) {
+      setIsLoading(false);
       setAccountError("Passwords do not match.");
       return;
     }
 
-    const result = await createManagedAccount({
-      name: accountName,
-      email: accountEmail,
-      password: accountPassword,
-      role: accountRole,
-      department: accountDepartment,
-    });
+    try {
+      const result = await createManagedAccount({
+        name: accountName,
+        email: accountEmail,
+        password: accountPassword,
+        role: accountRole,
+        department: accountDepartment,
+      });
 
-    if (!result.ok) {
-      setAccountError(result.error);
-      return;
+      if (!result.ok) {
+        setAccountError(result.error);
+        return;
+      }
+
+      setAccountSuccess(`Created ${result.user.name} as ${result.user.role} for ${result.user.department}.`);
+      setAccountName("");
+      setAccountEmail("");
+      setAccountPassword("");
+      setConfirmAccountPassword("");
+      setAccountRole("employee");
+      setAccountDepartment("");
+      void loadAccounts();
+    } finally {
+      setIsLoading(false);
     }
-
-    setAccountSuccess(`Created ${result.user.name} as ${result.user.role} for ${result.user.department}.`);
-    setAccountName("");
-    setAccountEmail("");
-    setAccountPassword("");
-    setConfirmAccountPassword("");
-    setAccountRole("employee");
-    setAccountDepartment("");
-    void loadAccounts();
   }
 
   async function handleAccountApproval(userId: string, status: "approved" | "rejected") {
@@ -241,16 +258,21 @@ export default function AdminPage() {
       return;
     }
 
-    const result = await updateAccountApproval(userId, status);
-    if (result.ok) {
-      setAccountActionMessage(`User account approved.`);
-      setAccountActionType("success");
-      void loadAccounts();
-      return;
-    }
+    setIsLoading(true);
+    try {
+      const result = await updateAccountApproval(userId, status);
+      if (result.ok) {
+        setAccountActionMessage(`User account approved.`);
+        setAccountActionType("success");
+        void loadAccounts();
+        return;
+      }
 
-    setAccountActionMessage(result.error);
-    setAccountActionType("error");
+      setAccountActionMessage(result.error);
+      setAccountActionType("error");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   async function confirmAccountReject() {
@@ -263,14 +285,19 @@ export default function AdminPage() {
       return;
     }
 
-    const result = await updateAccountApproval(selectedAccountId, "rejected", note);
-    if (result.ok) {
-      setAccountActionMessage(`User account rejected.`);
-      setAccountActionType("success");
-      setAccounts(listAllUsers());
-    } else {
-      setAccountActionMessage(result.error);
-      setAccountActionType("error");
+    setIsLoading(true);
+    try {
+      const result = await updateAccountApproval(selectedAccountId, "rejected", note);
+      if (result.ok) {
+        setAccountActionMessage(`User account rejected.`);
+        setAccountActionType("success");
+        setAccounts(listAllUsers());
+      } else {
+        setAccountActionMessage(result.error);
+        setAccountActionType("error");
+      }
+    } finally {
+      setIsLoading(false);
     }
 
     setSelectedAccountId(null);
@@ -291,6 +318,7 @@ export default function AdminPage() {
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:px-10">
+      <LoadingModal open={isLoading} message="Working on your request..." />
       <header className="card fade-in-up mb-5 flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#6f7e93]">

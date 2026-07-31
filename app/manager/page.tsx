@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { LoadingModal } from "@/app/components/loading-modal";
 import {
   bootstrapMockData,
   getPortalServerSnapshot,
@@ -46,6 +47,7 @@ export default function ManagerPage() {
   const [rejectError, setRejectError] = useState("");
   const [actionMessage, setActionMessage] = useState("");
   const [actionMessageType, setActionMessageType] = useState<"success" | "error" | "">("");
+  const [isLoading, setIsLoading] = useState(false);
   const snapshot = useSyncExternalStore(
     subscribePortalState,
     getPortalSnapshot,
@@ -119,15 +121,20 @@ export default function ManagerPage() {
       return;
     }
 
-    const result = await updateManagerDecision(requestId, nextDecision, undefined, targetRequest.employeeEmail);
-    if (result.ok) {
-      setActionMessage(`Request ${requestId} approved by manager. Email sent to the requestor.`);
-      setActionMessageType("success");
-      return;
-    }
+    setIsLoading(true);
+    try {
+      const result = await updateManagerDecision(requestId, nextDecision, undefined, targetRequest.employeeEmail);
+      if (result.ok) {
+        setActionMessage(`Request ${requestId} approved by manager. Email sent to the requestor.`);
+        setActionMessageType("success");
+        return;
+      }
 
-    setActionMessage(result.error);
-    setActionMessageType("error");
+      setActionMessage(result.error);
+      setActionMessageType("error");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   function closeRejectModal() {
@@ -147,15 +154,20 @@ export default function ManagerPage() {
 
     setActionMessage("");
     setActionMessageType("");
+    setIsLoading(true);
 
-    const rejectedRequest = adminApprovedRequests.find((request) => request.id === rejectRequestId);
-    const result = await updateManagerDecision(rejectRequestId, "rejected", reason, rejectedRequest?.employeeEmail);
-    if (result.ok) {
-      setActionMessage(`Request ${rejectRequestId} rejected by manager. Email sent to the requestor.`);
-      setActionMessageType("success");
-    } else {
-      setActionMessage(result.error);
-      setActionMessageType("error");
+    try {
+      const rejectedRequest = adminApprovedRequests.find((request) => request.id === rejectRequestId);
+      const result = await updateManagerDecision(rejectRequestId, "rejected", reason, rejectedRequest?.employeeEmail);
+      if (result.ok) {
+        setActionMessage(`Request ${rejectRequestId} rejected by manager. Email sent to the requestor.`);
+        setActionMessageType("success");
+      } else {
+        setActionMessage(result.error);
+        setActionMessageType("error");
+      }
+    } finally {
+      setIsLoading(false);
     }
 
     closeRejectModal();
@@ -166,8 +178,11 @@ export default function ManagerPage() {
     router.replace("/login");
   }
 
+  const loadingMessage = isLoading ? "Processing manager approval..." : undefined;
+
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:px-10">
+      <LoadingModal open={isLoading} message="Processing manager approval..." />
       <header className="card fade-in-up mb-5 flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#6f7e93]">

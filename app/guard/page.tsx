@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { LoadingModal } from "@/app/components/loading-modal";
 import {
   bootstrapMockData,
   getCurrentUser,
@@ -54,6 +55,7 @@ export default function GuardPage() {
   const [holdError, setHoldError] = useState("");
   const [returnRequestId, setReturnRequestId] = useState<string | null>(null);
   const [returnNote, setReturnNote] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const snapshot = useSyncExternalStore(
     subscribePortalState,
     getPortalSnapshot,
@@ -153,7 +155,12 @@ export default function GuardPage() {
       return;
     }
 
-    updateGuardDecision(requestId, nextDecision);
+    setIsLoading(true);
+    try {
+      updateGuardDecision(requestId, nextDecision);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   function closeHoldModal() {
@@ -171,7 +178,13 @@ export default function GuardPage() {
       return;
     }
 
-    updateGuardDecision(holdRequestId, "held", reason);
+    setIsLoading(true);
+    try {
+      updateGuardDecision(holdRequestId, "held", reason);
+    } finally {
+      setIsLoading(false);
+    }
+
     closeHoldModal();
   }
 
@@ -187,12 +200,18 @@ export default function GuardPage() {
 
   function confirmReturn() {
     if (!returnRequestId) return;
-    markLaptopAsReturned(returnRequestId, returnNote);
+    setIsLoading(true);
+    try {
+      markLaptopAsReturned(returnRequestId, returnNote);
+    } finally {
+      setIsLoading(false);
+    }
     closeReturnModal();
   }
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:px-10">
+      <LoadingModal open={isLoading} message="Processing guard action..." />
       <header className="card fade-in-up mb-5 flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#6f7e93]">

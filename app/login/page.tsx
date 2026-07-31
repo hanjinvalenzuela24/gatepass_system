@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
+import { LoadingModal } from "@/app/components/loading-modal";
 import { bootstrapMockData, getCurrentUser, login, registerEmployee, type UserRole } from "@/lib/portal";
 
 const roleOptions: Array<{ label: string; value: UserRole; helper: string }> = [
@@ -23,6 +24,7 @@ export default function LoginPage() {
   const [loginError, setLoginError] = useState("");
   const [registerError, setRegisterError] = useState("");
   const [registerSuccess, setRegisterSuccess] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     bootstrapMockData();
@@ -47,8 +49,10 @@ export default function LoginPage() {
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoginError("");
+    setIsLoading(true);
 
     const result = await login(email, password);
+    setIsLoading(false);
     if (!result.ok) {
       setLoginError(result.error);
       return;
@@ -76,13 +80,16 @@ export default function LoginPage() {
     event.preventDefault();
     setRegisterError("");
     setRegisterSuccess("");
+    setIsLoading(true);
 
     if (!name.trim()) {
+      setIsLoading(false);
       setRegisterError("Full name is required.");
       return;
     }
 
     if (!department.trim()) {
+      setIsLoading(false);
       setRegisterError("Department is required.");
       return;
     }
@@ -95,6 +102,7 @@ export default function LoginPage() {
       department,
     });
 
+    setIsLoading(false);
     if (!result.ok) {
       setRegisterError(result.error);
       return;
@@ -115,6 +123,7 @@ export default function LoginPage() {
     <main className="relative flex min-h-screen w-full items-center justify-center overflow-hidden px-4 py-10">
       <div className="absolute inset-0 bg-[linear-gradient(90deg,#ebe2ca_0%,#ebe2ca_50%,#efd8c7_50%,#efd8c7_100%)]" />
 
+      <LoadingModal open={isLoading} message="Processing your request..." />
       <section className="relative z-10 w-full max-w-[530px] rounded-3xl border border-[#e8ddd0] bg-[#f4f4f4] p-8 shadow-[0_12px_30px_rgba(82,66,44,0.08)] sm:p-10">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-4">
